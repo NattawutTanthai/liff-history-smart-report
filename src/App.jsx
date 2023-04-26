@@ -2,31 +2,106 @@ import { useEffect, useState } from "react";
 import liff from "@line/liff";
 import "./App.css";
 import ImageProfile from "./components/ImageProfile";
-import Card from "./components/Card";
 import icon from "./assets/icon.png";
+import { Backdrop, CircularProgress } from '@mui/material';
+import Axios from './constants/axiosConfig'
+
+// Day.js
+import dayjs from 'dayjs';
+import 'dayjs/locale/th';
+import buddhistEra from 'dayjs/plugin/buddhistEra';
+import relativeTime from 'dayjs/plugin/relativeTime';
+import Swal from "sweetalert2";
+dayjs.locale('th');
+dayjs.extend(buddhistEra);
+dayjs.extend(relativeTime);
 
 function App() {
-  const [message, setMessage] = useState("");
+  const [task, setTask] = useState([]);
   const [profile, setProfile] = useState({});
-  const [error, setError] = useState("");
+  const [open, setOpen] = useState(false);
+
+  const getTask = (displayName) => {
+    Axios.post('/task/get/history', {
+      user: displayName
+    })
+      .then((res) => {
+        console.log("data", res.data);
+        setTask(res.data);
+        setOpen(false);
+      })
+      .catch((err) => {
+        console.log(err)
+      })
+  }
 
   useEffect(() => {
+    setOpen(true);
     liff
       .init({
         liffId: import.meta.env.VITE_LIFF_ID
       })
-      .then(async () => {
+      .then(() => {
         if (!liff.isLoggedIn()) {
           liff.login();
+        } else {
+          liff.getProfile().then((profile) => {
+            setProfile(profile);
+            getTask(profile.displayName)
+          });
         }
-        const profile = await liff.getProfile();
-        setProfile(profile);
       })
       .catch((e) => {
-        setMessage("LIFF init failed.");
         setError(`${e}`);
       });
   }, []);
+
+  const handleFeedback = (id) => {
+    Swal.fire({
+      title: '1-5 คะแนน \n โดย 1 คือ ไม่พอใจ \n5 คือ พอใจมาก',
+      input: 'text',
+      inputAttributes: {
+        autocapitalize: 'off'
+      },
+      showCancelButton: true,
+      confirmButtonText: 'ส่งคะแนน',
+      showLoaderOnConfirm: true,
+      preConfirm: (point) => {
+        console.log(point);
+        if (point > 5 || point < 1) {
+          return Swal.showValidationMessage(
+            `กรุณาใส่คะแนน 1-5`
+          )
+        } else if (point == "") {
+          return Swal.showValidationMessage(
+            `กรุณาใส่คะแนน`
+          )
+        }
+      },
+      allowOutsideClick: () => !Swal.isLoading()
+    })
+      .then((result) => {
+        if (result.isConfirmed) {
+          Axios.put(`/task/${id}`, {
+            point: parseInt(result.value)
+          })
+            .then((res) => {
+              console.log(res.data);
+              Swal.fire({
+                title: `ขอบคุณสำหรับการให้คะแนน`,
+                icon: 'success',
+                confirmButtonText: 'ตกลง',
+
+              })
+              window.location.reload();
+            })
+            .catch((err) => {
+              console.log(err);
+            })
+
+        }
+      })
+  }
 
   return (
     <>
@@ -39,8 +114,60 @@ function App() {
           displayName={profile.displayName}
           pictureUrl={profile.pictureUrl}
         />
-        <Card displayName={profile.displayName} />
+        {
+          task.map((item, index) => {
+            return (
+              <div className="flex justify-center h-44 mt-5" key={index}>
+                <div className=" w-full mx-4 rounded-lg shadow-lg flex flex-row  border border-gray-500">
+                  <div className='mx-2 flex justify-center flex-col'>
+                    <img className=" w-32 h-32 object-cover rounded-lg" src={item.imgStart} alt="avatar" />
+                  </div>
+                  <div className='flex flex-col justify-center'>
+                    <h1 className='ml-2 mt-2 text-gray-500'>
+                      <b>รายละเอียด: </b>{item.detail}
+                    </h1>
+                    <h1 className='ml-2 text-gray-500'>
+                      <b>สถานะ: </b> เสร็จสิ้น
+                    </h1>
+                    <h1 className='ml-2 text-gray-500'>
+                      <b>วันที่แจ้ง: </b>{dayjs().to(dayjs.unix(item.startDate_timeStamp))}
+                    </h1>
+                    <h1 className='ml-2 mb-2 text-gray-500'>
+                      <b>สถานที่: </b>{item.address}
+                    </h1>
+                    <div className=" flex justify-between">
+                      {
+                        item.point >= 1
+                          ?
+                          <>
+                            <h1 className='ml-2 mb-2 text-gray-500'>
+                              <b>คะแนน: </b>{item.point}
+                            </h1>
+                          </>
+                          :
+                          <>
+                            <h1 className='ml-2 mb-2 text-gray-500'>
+                              <b>คะแนน: </b>-
+                            </h1>
+                            <button onClick={() => handleFeedback(item._id)} className="bg-[#E17B62] mr-2 mb-2 rounded-lg border border-gray-500 p-1">
+                              <h1 className="text-white px-3">ให้คะแนน</h1>
+                            </button>
+                          </>
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })
+        }
       </div>
+      <Backdrop
+        sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }}
+        open={open}
+      >
+        <CircularProgress color="inherit" />
+      </Backdrop>
     </>
   );
 }
