@@ -20,6 +20,7 @@ function App() {
   const [task, setTask] = useState([]);
   const [profile, setProfile] = useState({});
   const [open, setOpen] = useState(false);
+  const [error, setError] = useState("");
 
   const getTask = (displayName) => {
     Axios.post('/task/get/history', {
@@ -109,6 +110,9 @@ function App() {
         <img src={icon} alt="icon" className="w-64 mx-auto mt-5" />
         <div className=" flex justify-center ">
           <h1 className="text-2xl text-gray-500">ประวัติการแจ้งปัญหา</h1>
+        </div>
+        <div className=" flex justify-center ">
+          <h1 className="text-2xl text-gray-500">สถิติการแจ้งเสร็จสิ้น : {task.length} ครั้ง</h1>
         </div>
         <ImageProfile
           displayName={profile.displayName}
