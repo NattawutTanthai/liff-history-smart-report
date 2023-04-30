@@ -141,7 +141,7 @@ function App() {
                           ?
                           <>
                             <h1 className='ml-2 mb-2 text-gray-500'>
-                              <b>คะแนน: </b>{item.point}
+                              <b>คะแนน: </b>{item.point} คะแนน
                             </h1>
                           </>
                           :
